@@ -21,6 +21,8 @@ namespace RoadRegistry.Producer.Snapshot.ProjectionHost
     using RoadNode;
     using RoadSegment;
     using RoadSegmentSurface;
+    using Shared;
+    using ServiceCollectionExtensions = Extensions.ServiceCollectionExtensions;
 
     public class Program
     {
@@ -85,14 +87,88 @@ namespace RoadRegistry.Producer.Snapshot.ProjectionHost
                 .RunAsync(async (sp, host, configuration) =>
                 {
                     var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
-                    var migratorFactories = sp.GetRequiredService<IRunnerDbContextMigratorFactory[]>();
+                    var logger = loggerFactory.CreateLogger<Program>();
+                    // var migratorFactories = sp.GetRequiredService<IRunnerDbContextMigratorFactory[]>();
+                    //
+                    // foreach (var migratorFactory in migratorFactories)
+                    // {
+                    //     await migratorFactory
+                    //         .CreateMigrator(configuration, loggerFactory)
+                    //         .MigrateAsync(CancellationToken.None).ConfigureAwait(false);
+                    // }
+                    var from = new DateTimeOffset(2025, 06, 16, 0, 0, 0, TimeSpan.Zero);
+                    var to = new DateTimeOffset(2025, 07, 08, 0, 0, 0, TimeSpan.Zero);
 
-                    foreach (var migratorFactory in migratorFactories)
-                    {
-                        await migratorFactory
-                            .CreateMigrator(configuration, loggerFactory)
-                            .MigrateAsync(CancellationToken.None).ConfigureAwait(false);
-                    }
+                    logger.LogInformation("Starting to produce removed road registry records");
+                    var counter = 0;
+                    var nodeContext = sp.GetRequiredService<RoadNodeProducerSnapshotContext>();
+                    var nodeProducer = new KafkaProducer(configuration.CreateProducerOptions("RoadNodeTopic"));
+                    nodeContext.RoadNodes.Where(x => x.IsRemoved && x.LastChangedTimestamp > from && x.LastChangedTimestamp < to)
+                        .ToList()
+                        .ForEach(x =>
+                        {
+                            counter++;
+                            nodeProducer.Produce(x.Id, x.ToContract(), CancellationToken.None);
+                        });
+
+                    logger.LogInformation("Produced {Counter} removed road nodes", counter);
+                    // counter = 0;
+                    //
+                    // var segmentContext = sp.GetRequiredService<RoadSegmentProducerSnapshotContext>();
+                    // var segmentProducer = new KafkaProducer(configuration.CreateProducerOptions("RoadSegmentTopic"));
+                    // segmentContext.RoadSegments.Where(x => x.IsRemoved && x.LastChangedTimestamp > from && x.LastChangedTimestamp < to)
+                    //     .ToList()
+                    //     .ForEach(x =>
+                    //     {
+                    //         counter++;
+                    //         segmentProducer.Produce(x.Id, x.ToContract(), CancellationToken.None);
+                    //     });
+                    //
+                    // logger.LogInformation("Produced {Counter} removed road segments", counter);
+                    // counter = 0;
+                    //
+                    // var nationalRoadContext = sp.GetRequiredService<NationalRoadProducerSnapshotContext>();
+                    // var nationalRoadProducer = new KafkaProducer(configuration.CreateProducerOptions("NationalRoadTopic"));
+                    // nationalRoadContext.NationalRoads.Where(x => x.IsRemoved && x.LastChangedTimestamp > from && x.LastChangedTimestamp < to)
+                    //     .ToList()
+                    //     .ForEach(x =>
+                    //     {
+                    //         counter++;
+                    //
+                    //         nationalRoadProducer.Produce(x.Id, x.ToContract(), CancellationToken.None);
+                    //     });
+                    //
+                    // logger.LogInformation("Produced {Counter} removed national road", counter);
+                    // counter = 0;
+                    //
+                    // var gradeSeparatedJunctionContext = sp.GetRequiredService<GradeSeparatedJunctionProducerSnapshotContext>();
+                    // var gradeSeparatedJunctionProducer = new KafkaProducer(configuration.CreateProducerOptions("GradeSeparatedJunctionTopic"));
+                    // gradeSeparatedJunctionContext.GradeSeparatedJunctions.Where(x => x.IsRemoved && x.LastChangedTimestamp > from && x.LastChangedTimestamp < to)
+                    //     .ToList()
+                    //     .ForEach(x =>
+                    //     {
+                    //         counter++;
+                    //
+                    //         gradeSeparatedJunctionProducer.Produce(x.Id, x.ToContract(), CancellationToken.None);
+                    //     });
+                    //
+                    // logger.LogInformation("Produced {Counter} removed grade separated junctions", counter);
+                    // counter = 0;
+                    //
+                    // var roadSegmentSurfaceContext = sp.GetRequiredService<RoadSegmentSurfaceProducerSnapshotContext>();
+                    // var roadSegmentSurfaceProducer = new KafkaProducer(configuration.CreateProducerOptions("RoadSegmentSurfaceTopic"));
+                    // roadSegmentSurfaceContext.RoadSegmentSurfaces.Where(x => x.IsRemoved && x.LastChangedTimestamp > from && x.LastChangedTimestamp < to)
+                    //     .ToList()
+                    //     .ForEach(x =>
+                    //     {
+                    //         counter++;
+                    //
+                    //         roadSegmentSurfaceProducer.Produce(x.Id, x.ToContract(), CancellationToken.None);
+                    //     });
+                    //
+                    // logger.LogInformation("Produced {Counter} removed road surfaces", counter);
+                    // counter = 0;
+
                 });
         }
     }

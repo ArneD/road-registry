@@ -57,11 +57,11 @@ internal static class ServiceCollectionExtensions
                         )
                 )
                 .AddSingleton(sp => buildAcceptStreamMessage(sp.GetRequiredService<ConnectedProjection<TSnapshotContext>[]>()))
-                .AddHostedService<TEventProcessor>()
+                //.AddHostedService<TEventProcessor>()
             ;
     }
 
-    private static ProducerOptions CreateProducerOptions(this IConfiguration configuration, string topicConfigurationKey)
+    public static ProducerOptions CreateProducerOptions(this IConfiguration configuration, string topicConfigurationKey)
     {
         var bootstrapServers = configuration.GetRequiredValue<string>("Kafka:BootstrapServers");
         var saslUsername = configuration["Kafka:SaslUserName"];
